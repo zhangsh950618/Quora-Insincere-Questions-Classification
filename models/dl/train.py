@@ -12,30 +12,44 @@ from torchtext import datasets
 from util import get_args,SplitReversibleField
 from models import Classifier
 import logging
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
 logging.basicConfig(level=logging.INFO,
                    format='%(asctime)s   %(levelname)s   %(message)s')
 args = get_args()
 torch.cuda.set_device(args.gpu)
 device = torch.device('cuda:{}'.format(args.gpu))
 
-TEXT = SplitReversibleField(sequential=True, tokenize='spacy',lower=args.lower, include_lengths=True,use_vocab=True)
-LABEL = data.Field(sequential=False,use_vocab=False,is_target=True)
+# ------------------------  split datasets ------------------------
+all = pd.read_csv(os.path.join(args.data_path, "all.csv"))
+
+train_x,dev_x,_,_ = train_test_split(all.values.tolist(),[0] * len(all),test_size=0.2,random_state=0)
+
+pd.DataFrame(train_x).to_csv(os.path.join(args.data_path, "train.csv"), index = False)
+pd.DataFrame(dev_x).to_csv(os.path.join(args.data_path,"dev.csv"), index = False)
+
+
 
 
 # ------------------------  buding datasets ------------------------
 logging.info("Building datasets, loding word vectors")
+TEXT = SplitReversibleField(sequential=True, tokenize='spacy',lower=args.lower, include_lengths=True,use_vocab=True,batch_first=True)
+LABEL = data.Field(sequential=False,use_vocab=False,is_target=True,batch_first=True)
 train, dev = data.TabularDataset.splits(
         skip_header=True,
         path=args.data_path,
-        train='sample.csv',
-        validation='sample.csv',
+        train='train.csv',
+        validation='dev.csv',
         format='csv',
         fields=[('qid',None),('question_text', TEXT), ('label', LABEL)])
 
 train_iter, dev_iter = data.Iterator.splits(
-        (train, val), sort_key=lambda x: len(x.question_text),
+        (train, dev), sort_key=lambda x: len(x.question_text),
         batch_sizes=(32, 32),
-        sort_within_batch=True, repeat=False)
+        sort_within_batch=True,
+        repeat=False,
+        device=device)
 
 
 # ------------------------  buding vocab ------------------------
@@ -44,8 +58,7 @@ TEXT.build_vocab(train, vectors="glove.6B.100d")
 
 # ------------------------  buding network ------------------------
 logging.info("building network")
-model = Classifier(args)
-model.embed.weight.data.copy_(TEXT.vocab.vectors)
+model = Classifier(args,TEXT.vocab)
 model.to(device)
 criterion = nn.CrossEntropyLoss()
 opt = O.Adam(model.parameters(), lr=args.lr)
@@ -68,7 +81,10 @@ for epoch in range(args.epochs):
         model.train(); opt.zero_grad()
         iterations += 1
         predict = model(batch)
-        loss = criterion(answer, batch.label)
+        n_correct += (torch.max(predict, 1)[1].view(batch.label.size()) == batch.label).sum().item()
+        n_total += batch.batch_size
+        train_acc = 100. * n_correct/n_total
+        loss = criterion(predict, batch.label)
         loss.backward(); opt.step()
 
         if iterations % args.dev_every == 0:
@@ -77,9 +93,9 @@ for epoch in range(args.epochs):
             n_dev_correct, dev_loss = 0, 0
             with torch.no_grad():
                 for dev_batch_idx, dev_batch in enumerate(dev_iter):
-                     answer = model(dev_batch)
-                     n_dev_correct += (torch.max(answer, 1)[1].view(dev_batch.label.size()) == dev_batch.label).sum().item()
-                     dev_loss = criterion(answer, dev_batch.label)
+                     predict = model(dev_batch)
+                     n_dev_correct += (torch.max(predict, 1)[1].view(dev_batch.label.size()) == dev_batch.label).sum().item()
+                     dev_loss = criterion(predict, dev_batch.label)
             dev_acc = 100. * n_dev_correct / len(dev)
             print(dev_log_template.format(time.time()-start,
                 epoch, iterations, 1+batch_idx, len(train_iter),

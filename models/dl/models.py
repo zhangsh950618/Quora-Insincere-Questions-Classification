@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils import rnn
 from torch.autograd import Variable
+import torch.nn.functional as F
 
 class Bottle(nn.Module):
 
@@ -40,27 +41,17 @@ class Classifier(nn.Module):
 
     def __init__(self, config,vocab):
         super(Classifier, self).__init__()
-        # self.device = torch.device('cuda:{}'.format(config.gpu))
         self.embed = nn.Embedding(len(vocab), config.d_embed)
         self.embed.weight.data.copy_(vocab.vectors)
         self.encoder = RNNEncoder(config)
         self.dropout = nn.Dropout(p=config.dp_ratio)
         self.relu = nn.ReLU()
-        self.sigmoid = nn.Sigmoid()
+        self.log_softmax = nn.LogSoftmax(-1)
         seq_in_size = config.d_hidden
         lin_config = [seq_in_size]*2
         self.out = nn.Sequential(
-            Linear(*lin_config),
-            self.relu,
-            self.dropout,
-            Linear(*lin_config),
-            self.relu,
-            self.dropout,
-            Linear(*lin_config),
-            self.relu,
-            self.dropout,
             Linear(seq_in_size, 2),
-            self.sigmoid)
+            self.log_softmax)
 
     def forward(self, batch):
         (x, x_length) = batch.question_text

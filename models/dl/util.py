@@ -48,7 +48,7 @@ class SplitReversibleField(Field):
 
 def get_args():
     root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    parser = ArgumentParser(description='PyTorch/torchtext SNLI example')
+    parser = ArgumentParser(description='Quora')
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--d_embed', type=int, default=100)
@@ -57,7 +57,7 @@ def get_args():
     parser.add_argument('--n_layers', type=int, default=1)
     parser.add_argument('--log_every', type=int, default=50)
     parser.add_argument('--lr', type=float, default=.001)
-    parser.add_argument('--dev_every', type=int, default=1000)
+    parser.add_argument('--dev_every', type=int, default=5000)
     parser.add_argument('--save_every', type=int, default=1000)
     parser.add_argument('--dp_ratio', type=int, default=0.2)
     parser.add_argument('--no-bidirectional', action='store_false', dest='birnn')

@@ -13,3 +13,4 @@ Here's your chance to combat online trolls at scale. Help Quora uphold their pol
 1. [【NLP文本分类】文本分类算法集锦，从入门到精通](https://zhuanlan.zhihu.com/p/50657430)
 2. [pytorch-examples-snli](https://github.com/pytorch/examples/tree/master/snli)
 3. [pytorch-visdom](https://github.com/facebookresearch/visdom)
+4. [DEEP LEARNING WITH PYTORCH](https://pytorch.org/tutorials/beginner/nlp/deep_learning_tutorial.html)

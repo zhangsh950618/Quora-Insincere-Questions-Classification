@@ -26,8 +26,19 @@ all = pd.read_csv(os.path.join(args.data_path, "all.csv"))
 
 train_x,dev_x,_,_ = train_test_split(all.values.tolist(),[0] * len(all),test_size=0.2,random_state=0)
 
-pd.DataFrame(train_x).to_csv(os.path.join(args.data_path, "train.csv"), index = False)
-pd.DataFrame(dev_x).to_csv(os.path.join(args.data_path,"dev.csv"), index = False)
+train_x = pd.DataFrame(train_x)
+dev_x = pd.DataFrame(dev_x)
+
+logging.info("dev dataset has %d positive sample, %d negtive sample" % (len(dev_x[dev_x[2] == 1]), len(dev_x[dev_x[2] == 0])))
+
+train_pos = train_x[train_x[2] == 1]
+train_neg = train_x[train_x[2] == 0]
+
+logging.info("train dataset has %d positive sample, %d negtive sample" % (len(train_pos), len(train_pos)))
+train_x = train_pos.append(train_neg[:len(train_pos)])
+
+train_x.to_csv(os.path.join(args.data_path, "train.csv"), index = False)
+dev_x.to_csv(os.path.join(args.data_path,"dev.csv"), index = False)
 
 
 
@@ -46,7 +57,7 @@ train, dev = data.TabularDataset.splits(
 
 train_iter, dev_iter = data.Iterator.splits(
         (train, dev), sort_key=lambda x: len(x.question_text),
-        batch_sizes=(32, 32),
+        batch_sizes=(args.batch_size, 512),
         sort_within_batch=True,
         repeat=False,
         device=device)
@@ -60,7 +71,7 @@ TEXT.build_vocab(train, vectors="glove.6B.100d")
 logging.info("building network")
 model = Classifier(args,TEXT.vocab)
 model.to(device)
-criterion = nn.CrossEntropyLoss()
+criterion = nn.NLLLoss()
 opt = O.Adam(model.parameters(), lr=args.lr)
 
 # ------------------------  start training ------------------------
